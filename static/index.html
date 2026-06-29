@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>meme_gen</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    label { display: block; margin: 0.75rem 0 0.25rem; font-weight: 600; }
+    input, select, textarea, button { width: 100%; padding: 0.5rem; font-size: 1rem; box-sizing: border-box; }
+    button { margin-top: 1rem; cursor: pointer; }
+    .row { display: flex; gap: 1rem; }
+    .row > * { flex: 1; }
+    pre { background: #f4f4f4; padding: 0.75rem; white-space: pre-wrap; border-radius: 6px; }
+    video { width: 100%; margin-top: 1rem; border-radius: 8px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <h1>meme_gen</h1>
+
+  <label for="topic">Topic / theme</label>
+  <input id="topic" placeholder="e.g. Monday motivation, gym" />
+
+  <div class="row">
+    <div>
+      <label for="tone">Tone</label>
+      <select id="tone">
+        <option>funny</option>
+        <option>motivational</option>
+        <option>relatable</option>
+        <option>wholesome</option>
+      </select>
+    </div>
+    <div>
+      <label for="template">Template</label>
+      <select id="template"></select>
+    </div>
+    <div>
+      <label for="source">Clip source</label>
+      <select id="source">
+        <option value="giphy">Giphy</option>
+        <option value="klipy">Klipy</option>
+      </select>
+    </div>
+  </div>
+
+  <button id="previewBtn">1. Preview copy (AI)</button>
+  <div id="copyBox" class="hidden">
+    <label>Generated copy (edit freely, then render):</label>
+    <textarea id="copyJson" rows="8"></textarea>
+    <button id="renderBtn">2. Render video</button>
+  </div>
+
+  <div id="status" style="margin-top:1rem; font-weight:600;"></div>
+  <video id="result" controls class="hidden"></video>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

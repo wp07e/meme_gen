@@ -296,13 +296,13 @@ class RenderRequest(BaseModel):
     template: str = "caption-top-bottom"
     source: str = "giphy"  # "giphy" | "klipy"
     # When the UI previews copy first, it posts the edited copy back:
-    copy: CopyResult | None = None
+    copy_result: CopyResult | None = None
 
 
 class RenderResult(BaseModel):
     """Output of orchestrator / the render route."""
     output_path: str
-    copy: CopyResult
+    copy_result: CopyResult
     clip: ClipInfo
 ```
 
@@ -1019,12 +1019,12 @@ def run_pipeline(
     template_name: str,
     source: str,
     settings: Settings,
-    copy: CopyResult | None = None,
+    copy_result: CopyResult | None = None,
 ) -> RenderResult:
     spec = load_template(template_name)
     slot_count = len(spec.positions)
 
-    if copy is None:
+    if copy_result is None:
         copy = generate_copy(
             topic=topic,
             tone=tone,
@@ -1042,9 +1042,9 @@ def run_pipeline(
     )
 
     out_path = render_video(
-        clip=clip, copy=copy, template=spec, output_dir=settings.output_dir,
+        clip=clip, copy=copy_result, template=spec, output_dir=settings.output_dir,
     )
-    return RenderResult(output_path=out_path, copy=copy, clip=clip)
+    return RenderResult(output_path=out_path, copy_result=copy_result, clip=clip)
 ```
 
 - [ ] **Step 4: Run, verify pass**
@@ -1185,19 +1185,19 @@ class RenderReq(BaseModel):
     tone: str = "funny"
     template: str = "caption-top-bottom"
     source: str = "giphy"
-    copy: dict | None = None
+    copy_data: dict | None = None
 
 
 @app.post("/api/render")
 def api_render(req: RenderReq):
     settings = get_settings()
     from app.models import CopyResult
-    copy_obj = CopyResult(**req.copy) if req.copy else None
+    copy_obj = CopyResult(**req.copy_data) if req.copy_data else None
     try:
         result = run_pipeline(
             topic=req.topic, tone=req.tone,
             template_name=req.template, source=req.source,
-            settings=settings, copy=copy_obj,
+            settings=settings, copy_result=copy_obj,
         )
     except LookupError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -1306,7 +1306,7 @@ $("previewBtn").addEventListener("click", async () => {
   });
   if (!res.ok) { $("status").textContent = "Copy failed: " + (await res.text()); return; }
   const data = await res.json();
-  $("copyJson").value = JSON.stringify(data.copy, null, 2);
+  $("copyJson").value = JSON.stringify(data.copy_result, null, 2);
   $("copyBox").classList.remove("hidden");
   $("status").textContent = "Copy ready — edit if you like, then render.";
 });
@@ -1323,7 +1323,7 @@ $("renderBtn").addEventListener("click", async () => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       topic: $("topic").value, tone: $("tone").value,
-      template: $("template").value, source: $("source").value, copy,
+      template: $("template").value, source: $("source").value, copy_data: copy,
     }),
   });
   if (!res.ok) { $("status").textContent = "Render failed: " + (await res.text()); return; }
@@ -1503,11 +1503,11 @@ git commit -m "feat: branded lower-third template + Canva overlay assets"
 **2. Placeholder scan:** No TBD/TODO. Every code step has complete code. The only "manual" step is Task 11 Step 1 (designing in Canva) — that's intentional because Canva assets are data, not code.
 
 **3. Type consistency:**
-- `CopyResult(caption, hook, overlay_lines)`, `ClipInfo(path, source, original_url, width, height)`, `RenderResult(output_path, copy, clip)` — used identically across copywriter, clip_source, renderer, orchestrator, main. ✓
+- `CopyResult(caption, hook, overlay_lines)`, `ClipInfo(path, source, original_url, width, height)`, `RenderResult(output_path, copy_result, clip)` — used identically across copywriter, clip_source, renderer, orchestrator, main. ✓
 - `generate_copy(*, topic, tone, overlay_slot_count, api_key, model, base_url=...)` — signature matches in copywriter.py, orchestrator.py, main.py. ✓
 - `fetch_clip(*, query, source, api_key, dest_dir)` — matches in clip_source.py, orchestrator.py, main.py test mocks. ✓
-- `render_video(*, clip, copy, template, output_dir)` — matches renderer.py, orchestrator.py. ✓
-- `run_pipeline(*, topic, tone, template_name, source, settings, copy=None)` — matches orchestrator.py and main.py. ✓
+- `render_video(*, clip, copy, template, output_dir)` — matches renderer.py, orchestrator.py (orchestrator passes `copy=copy_result`). ✓
+- `run_pipeline(*, topic, tone, template_name, source, settings, copy_result=None)` — matches orchestrator.py and main.py. ✓
 - MoviePy v2 imports `from moviepy import ...` used consistently. ✓
 
 No issues found. Plan is complete.

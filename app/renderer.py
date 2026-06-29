@@ -34,8 +34,17 @@ def render_video(
             img = img.with_position((ov.x, ov.y))
             layers.append(img)
 
+    # Distribute overlay lines across template slots. If there are more lines
+    # than slots, fold the extras into the last slot (joined by ' / ') so no
+    # content is silently dropped. If fewer, only filled slots get text.
+    slots = list(template.positions.keys())
+    lines = list(copy.overlay_lines)
+    if len(lines) > len(slots) and slots:
+        # Merge tail into the last slot.
+        lines = lines[: len(slots) - 1] + [" / ".join(lines[len(slots) - 1:])]
+
     # Text layers mapped to positions by order: top, bottom, ...
-    for slot_name, line in zip(template.positions.keys(), copy.overlay_lines):
+    for slot_name, line in zip(slots, lines):
         pos = template.positions[slot_name]
         txt = TextClip(
             text=line,

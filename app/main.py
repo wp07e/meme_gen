@@ -57,6 +57,7 @@ class RenderReq(BaseModel):
     template: str = "caption-top-bottom"
     source: str = "giphy"
     copy_data: dict | None = None
+    clip_keyword: str | None = None
 
 
 @app.post("/api/render")
@@ -69,6 +70,7 @@ def api_render(req: RenderReq):
             topic=req.topic, tone=req.tone,
             template_name=req.template, source=req.source,
             settings=settings, copy_result=copy_obj,
+            clip_keyword=req.clip_keyword,
         )
     except LookupError as e:
         raise HTTPException(status_code=404, detail=str(e))

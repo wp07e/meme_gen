@@ -39,6 +39,7 @@ $("renderBtn").addEventListener("click", async () => {
     body: JSON.stringify({
       topic: $("topic").value, tone: $("tone").value,
       template: $("template").value, source: $("source").value, copy_data: copy,
+      clip_keyword: $("clipKeyword").value.trim() || null,
     }),
   });
   if (!res.ok) { $("status").textContent = "Render failed: " + (await res.text()); return; }

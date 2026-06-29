@@ -15,6 +15,7 @@ def run_pipeline(
     source: str,
     settings: Settings,
     copy_result: CopyResult | None = None,
+    clip_keyword: str | None = None,
 ) -> RenderResult:
     spec = load_template(template_name)
     slot_count = len(spec.positions)
@@ -29,8 +30,12 @@ def run_pipeline(
             base_url=settings.moonshot_base_url,
         )
 
+    # Clip search uses an explicit keyword if provided; otherwise falls back to
+    # the raw topic. The keyword usually yields better Giphy/Klipy results than
+    # a long topic phrase, since clip search is keyword-matched, not semantic.
+    query = (clip_keyword or "").strip() or topic
     clip = fetch_clip(
-        query=topic,
+        query=query,
         source=source,
         api_key=settings.giphy_api_key if source == "giphy" else settings.klipy_api_key,
         dest_dir=settings.tmp_dir,

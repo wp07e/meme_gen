@@ -1,0 +1,17 @@
+{
+  "name": "caption-top-bottom",
+  "description": "Classic meme format: bold text on top and bottom over the clip.",
+  "aspect_ratio": "1:1",
+  "width": 1080,
+  "height": 1080,
+  "font": "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+  "font_size": 64,
+  "font_color": "white",
+  "stroke_color": "black",
+  "stroke_width": 3,
+  "positions": {
+    "top": { "x": "center", "y": 60 },
+    "bottom": { "x": "center", "y": "bottom-60" }
+  },
+  "overlays": []
+}

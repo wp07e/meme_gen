@@ -1,0 +1,19 @@
+{
+  "name": "lower-third-brand",
+  "description": "Branded lower-third caption bar with watermark (9:16 reels/stories).",
+  "aspect_ratio": "9:16",
+  "width": 1080,
+  "height": 1920,
+  "font": "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+  "font_size": 56,
+  "font_color": "white",
+  "stroke_color": "black",
+  "stroke_width": 2,
+  "positions": {
+    "caption": { "x": "center", "y": "bottom-220" }
+  },
+  "overlays": [
+    { "file": "bottom-bar.png", "x": 0, "y": 1760 },
+    { "file": "watermark.png", "x": 820, "y": 40 }
+  ]
+}

@@ -39,9 +39,19 @@ def generate_copy(
             {"role": "system", "content": prompt},
             {"role": "user", "content": f"Write copy for: {topic}"},
         ],
-        temperature=0.9,
+        # Reasoning models (kimi-k2.6) require temperature=1 and spend
+        # thousands of tokens thinking before the visible answer; budget generously.
+        temperature=1,
+        max_tokens=4000,
     )
-    content = response.choices[0].message.content
+    message = response.choices[0].message
+    content = message.content or ""
+    # Some reasoning models return the answer in reasoning_content; fall back
+    # to it only if the visible content is empty.
+    if not content.strip():
+        content = getattr(message, "reasoning_content", "") or ""
+    if not content.strip():
+        raise ValueError("Model returned empty content and reasoning_content.")
     data = _extract_json(content)
     return CopyResult(
         caption=data["caption"],

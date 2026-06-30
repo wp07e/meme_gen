@@ -9,11 +9,18 @@
     label { display: block; margin: 0.75rem 0 0.25rem; font-weight: 600; }
     input, select, textarea, button { width: 100%; padding: 0.5rem; font-size: 1rem; box-sizing: border-box; }
     button { margin-top: 1rem; cursor: pointer; }
+    button:disabled { opacity: 0.5; cursor: default; }
     .row { display: flex; gap: 1rem; }
     .row > * { flex: 1; }
+    .radios { display: flex; gap: 1rem; margin-top: 0.25rem; }
+    .radios label { font-weight: 400; margin: 0; display: flex; gap: 0.3rem; align-items: center; }
+    .radios input { width: auto; }
     pre { background: #f4f4f4; padding: 0.75rem; white-space: pre-wrap; border-radius: 6px; }
     video { width: 100%; margin-top: 1rem; border-radius: 8px; }
     .hidden { display: none; }
+    #status { margin-top: 1rem; font-weight: 600; min-height: 1.4em; }
+    #cancelBtn { background: #c33; color: white; margin-top: 0.5rem; width: auto; padding: 0.4rem 1rem; }
+    #cancelBtn:disabled { background: #999; }
   </style>
 </head>
 <body>
@@ -22,7 +29,7 @@
   <label for="topic">Topic / theme</label>
   <input id="topic" placeholder="e.g. Monday motivation, gym" />
 
-  <label for="clipKeyword" style="margin-top:0.75rem;">Clip search keyword <span style="font-weight:400; color:#888;">(optional — used for Giphy/Klipy; defaults to topic)</span></label>
+  <label for="clipKeyword" style="margin-top:0.75rem;">Clip search keyword <span style="font-weight:400; color:#888;">(optional — used to search Giphy/Klipy; defaults to topic)</span></label>
   <input id="clipKeyword" placeholder="e.g. workout, monday, tired" />
 
   <div class="row">
@@ -39,13 +46,13 @@
       <label for="template">Template</label>
       <select id="template"></select>
     </div>
-    <div>
-      <label for="source">Clip source</label>
-      <select id="source">
-        <option value="giphy">Giphy</option>
-        <option value="klipy">Klipy</option>
-      </select>
-    </div>
+  </div>
+
+  <label style="margin-top:0.75rem;">Format</label>
+  <div class="radios" id="formatPref">
+    <label><input type="radio" name="format" value="auto" checked /> Auto (clip → GIF fallback)</label>
+    <label><input type="radio" name="format" value="clip" /> Clip (video)</label>
+    <label><input type="radio" name="format" value="gif" /> GIF (animated)</label>
   </div>
 
   <button id="previewBtn">1. Preview copy (AI)</button>
@@ -55,7 +62,8 @@
     <button id="renderBtn">2. Render video</button>
   </div>
 
-  <div id="status" style="margin-top:1rem; font-weight:600;"></div>
+  <div id="status"></div>
+  <button id="cancelBtn" class="hidden">Cancel search</button>
   <video id="result" controls class="hidden"></video>
 
   <script src="/static/app.js"></script>

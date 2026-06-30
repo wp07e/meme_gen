@@ -5,4 +5,5 @@ __pycache__/
 venv/
 output/
 tmp/
+*.db
 .DS_Store

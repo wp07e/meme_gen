@@ -29,20 +29,63 @@ class RateLimitError(Exception):
 # Quality gate
 # ---------------------------------------------------------------------------
 
-# Accept a clip if its best mp4 has short edge >= this AND file size >= this.
-# 480px short edge = IG/FB minimum recommended upload dimension for clips;
+# Resolution + size: apply to ALL candidates (clips and GIFs).
+# 480px short edge = IG/FB minimum recommended upload dimension;
 # below it the upscale to 1080 visibly degrades on phone displays.
 MIN_SHORT_EDGE = 480
 MIN_FILE_BYTES = 150_000
 
+# Duration: clips must be 5-15s (per user spec). GIFs accept any length.
+CLIP_MIN_DURATION = 5.0
+CLIP_MAX_DURATION = 15.0
+
 
 def meets_quality(clip: ClipInfo) -> bool:
-    """True if the clip is sharp enough for IG/FB feeds (no pixelation)."""
+    """Resolution + size gate (format-agnostic). Returns False if too small."""
     if clip.short_edge < MIN_SHORT_EDGE:
         return False
     if (clip.size_bytes or 0) < MIN_FILE_BYTES:
         return False
     return True
+
+
+def meets_duration(clip: ClipInfo) -> bool:
+    """Duration gate — only applies to clips, not GIFs.
+
+    Clips must be 5-15s. GIFs (category 'gifs') accept any length since they
+    loop natively and are meant to be short. Requires clip.duration to be probed.
+    """
+    if not clip.is_clip:
+        return True  # GIFs are exempt
+    if clip.duration is None:
+        return False  # clip duration not yet probed — treat as failing
+    return CLIP_MIN_DURATION <= clip.duration <= CLIP_MAX_DURATION
+
+
+def probe_duration(clip: ClipInfo) -> ClipInfo:
+    """Download the candidate, ffprobe its duration, return an updated ClipInfo.
+
+    Only call this for clip-format candidates (GIFs skip the duration gate).
+    Downloads the full file (~1s) — reliable but adds latency per probe.
+    """
+    import subprocess
+    import tempfile
+    import os
+    resp = httpx.get(clip.original_url, timeout=30, follow_redirects=True)
+    resp.raise_for_status()
+    fd, tmp_path = tempfile.mkstemp(suffix=".mp4")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(resp.content)
+        probe = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "csv=p=0", tmp_path],
+            capture_output=True, text=True, check=True,
+        )
+        dur = float(probe.stdout.strip()) if probe.stdout.strip() else 0.0
+    finally:
+        os.unlink(tmp_path)
+    return clip.model_copy(update={"duration": dur, "size_bytes": clip.size_bytes or len(resp.content)})
 
 
 # ---------------------------------------------------------------------------
@@ -270,8 +313,21 @@ def fetch_best_clip(
                     if not meets_quality(cand):
                         on_attempt(f"  low quality ({cand.short_edge}px, {cand.size_bytes}B), will retry")
                         continue
+                    # Clips must pass the duration gate (5-15s). GIFs skip it.
+                    # Probing downloads the file (~1s) — only for clip candidates.
+                    if cand.is_clip:
+                        try:
+                            on_attempt(f"  checking length of {provider} {category} clip…")
+                            cand = probe_duration(cand)
+                        except Exception as e:
+                            on_attempt(f"  duration probe failed: {e}")
+                            continue
+                        if not meets_duration(cand):
+                            on_attempt(f"  wrong length ({cand.duration:.1f}s; need {CLIP_MIN_DURATION}-{CLIP_MAX_DURATION}s), will retry")
+                            continue
                     # Accept — download and return.
-                    on_attempt(f"  ✓ accepted {provider} {category} ({cand.short_edge}px)")
+                    dur_info = f", {cand.duration:.1f}s" if cand.duration else ""
+                    on_attempt(f"  ✓ accepted {provider} {category} ({cand.short_edge}px{dur_info})")
                     return download_clip(clip=cand, dest_dir=dest_dir)
 
         # Exhausted all providers/categories for current_query → mutate the query.

@@ -36,6 +36,44 @@ def test_meets_quality_rejects_unknown_dims():
     assert meets_quality(clip) is False  # short_edge 0
 
 
+# ---- Duration gate (clips 5-15s, GIFs any length) -----------------------
+
+from app.clip_source import meets_duration, CLIP_MIN_DURATION, CLIP_MAX_DURATION
+
+
+def test_meets_duration_clip_in_range():
+    clip = ClipInfo(path="", source="klipy", category="clips", original_url="x",
+                    width=854, height=480, duration=8.0)
+    assert meets_duration(clip) is True
+
+
+def test_meets_duration_clip_too_short():
+    clip = ClipInfo(path="", source="klipy", category="clips", original_url="x",
+                    width=854, height=480, duration=3.0)
+    assert meets_duration(clip) is False
+
+
+def test_meets_duration_clip_too_long():
+    clip = ClipInfo(path="", source="klipy", category="clips", original_url="x",
+                    width=854, height=480, duration=20.0)
+    assert meets_duration(clip) is False
+
+
+def test_meets_duration_clip_unprobed_fails():
+    # duration=None (not yet probed) → fails the gate
+    clip = ClipInfo(path="", source="klipy", category="clips", original_url="x",
+                    width=854, height=480, duration=None)
+    assert meets_duration(clip) is False
+
+
+def test_meets_duration_gif_exempt_any_length():
+    # GIFs accept any duration, including None (unprobed) and very short.
+    for dur in (None, 1.0, 3.0, 60.0):
+        clip = ClipInfo(path="", source="giphy", category="gifs", original_url="x",
+                        width=498, height=498, duration=dur)
+        assert meets_duration(clip) is True, f"GIF duration {dur} should be exempt"
+
+
 # ---- Giphy search --------------------------------------------------------
 
 def test_search_giphy_parses_candidates():

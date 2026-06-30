@@ -141,3 +141,64 @@ def test_rotation_starts_with_klipy_when_requested(mem_session, tmp_path):
             on_attempt=lambda m: None, is_cancelled=lambda: False,
         )
     assert provider_order[0] == "klipy"
+
+
+# ---- Duration gate in the loop -------------------------------------------
+
+def _hd_klipy_clip(url="https://k/c.mp4"):
+    """A Klipy CLIP (category='clips') candidate, HD res, duration unprobed."""
+    return ClipInfo(path="", source="klipy", category="clips", original_url=url,
+                    width=854, height=480, size_bytes=420_000, duration=None)
+
+
+def test_loop_probes_and_accepts_clip_in_duration_range(mem_session, tmp_path):
+    """A clip-format candidate is probed; if 5-15s it's accepted."""
+    probed = []
+    def fake_probe(clip):
+        probed.append(clip.original_url)
+        return clip.model_copy(update={"duration": 8.0})
+    with patch("app.clip_source.search_klipy", return_value=[_hd_klipy_clip()]), \
+         patch("app.clip_source.search_giphy", return_value=[]), \
+         patch("app.clip_source.probe_duration", side_effect=fake_probe), \
+         patch("app.clip_source.download_clip", side_effect=_mk_download(tmp_path)):
+        clip = fetch_best_clip(
+            query="x", format_pref=FormatPref.clip, rotate_start="klipy",
+            giphy_key="g", klipy_key="k", klipy_customer_id="c",
+            session_id="s1", session=mem_session, dest_dir=str(tmp_path),
+            on_attempt=lambda m: None, is_cancelled=lambda: False,
+        )
+    assert len(probed) == 1          # duration was probed
+    assert clip.duration == 8.0
+
+
+def test_loop_rejects_clip_too_short_after_probe(mem_session, tmp_path):
+    """A 3s clip is probed, rejected, and the loop continues (raises after exhausting)."""
+    def fake_probe(clip):
+        return clip.model_copy(update={"duration": 3.0})  # too short
+    with patch("app.clip_source.search_klipy", return_value=[_hd_klipy_clip()]), \
+         patch("app.clip_source.search_giphy", return_value=[]), \
+         patch("app.clip_source.probe_duration", side_effect=fake_probe):
+        with pytest.raises(LookupError):
+            fetch_best_clip(
+                query="x", format_pref=FormatPref.clip, rotate_start="klipy",
+                giphy_key="g", klipy_key="k", klipy_customer_id="c",
+                session_id="s1", session=mem_session, dest_dir=str(tmp_path),
+                on_attempt=lambda m: None, is_cancelled=lambda: False,
+                max_attempts=2,
+            )
+
+
+def test_loop_does_not_probe_gifs(mem_session, tmp_path):
+    """GIF-format candidates skip the duration probe entirely (exempt)."""
+    probed = []
+    with patch("app.clip_source.search_giphy", return_value=[_hd_clip()]), \
+         patch("app.clip_source.search_klipy", return_value=[]), \
+         patch("app.clip_source.probe_duration", side_effect=lambda c: probed.append(c) or c), \
+         patch("app.clip_source.download_clip", side_effect=_mk_download(tmp_path)):
+        fetch_best_clip(
+            query="x", format_pref=FormatPref.gif, rotate_start="giphy",
+            giphy_key="g", klipy_key="k", klipy_customer_id="c",
+            session_id="s1", session=mem_session, dest_dir=str(tmp_path),
+            on_attempt=lambda m: None, is_cancelled=lambda: False,
+        )
+    assert probed == []  # GIFs never probed

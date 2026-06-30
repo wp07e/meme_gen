@@ -35,12 +35,18 @@ class ClipInfo(BaseModel):
     width: int | None = None
     height: int | None = None
     size_bytes: int | None = None
+    duration: float | None = None  # seconds, probed via ffprobe (None until probed)
 
     @property
     def short_edge(self) -> int:
         """Smaller of width/height — used by the quality gate."""
         dims = [d for d in (self.width, self.height) if d]
         return min(dims) if dims else 0
+
+    @property
+    def is_clip(self) -> bool:
+        """True if this is a video clip (gated for length) vs a GIF (any length)."""
+        return self.category == "clips"
 
 
 class RenderResult(BaseModel):

@@ -49,16 +49,19 @@ def meets_quality(clip: ClipInfo) -> bool:
     return True
 
 
-def meets_duration(clip: ClipInfo) -> bool:
+def meets_duration(clip: ClipInfo, *, enforce: bool = False) -> bool:
     """Duration gate — only applies to clips, not GIFs.
 
     Clips must be 5-15s. GIFs (category 'gifs') accept any length since they
     loop natively and are meant to be short. Requires clip.duration to be probed.
+
+    enforce=True overrides the GIF exemption: when the user explicitly asked for
+    a 'clip', even a Giphy gif-mp4 (category='gifs') must pass the 5-15s gate.
     """
-    if not clip.is_clip:
-        return True  # GIFs are exempt
+    if not clip.is_clip and not enforce:
+        return True  # GIFs are exempt (gif/auto modes)
     if clip.duration is None:
-        return False  # clip duration not yet probed — treat as failing
+        return False  # duration not yet probed — treat as failing
     return CLIP_MIN_DURATION <= clip.duration <= CLIP_MAX_DURATION
 
 
@@ -313,16 +316,21 @@ def fetch_best_clip(
                     if not meets_quality(cand):
                         on_attempt(f"  low quality ({cand.short_edge}px, {cand.size_bytes}B), will retry")
                         continue
-                    # Clips must pass the duration gate (5-15s). GIFs skip it.
-                    # Probing downloads the file (~1s) — only for clip candidates.
-                    if cand.is_clip:
+                    # Duration gate (5-15s): applies to clip-category candidates AND
+                    # to anything when the user explicitly chose 'clip'. Giphy serves
+                    # all content under category='gifs', so without this a 'clip'
+                    # request would let a 1-second gif-mp4 slip through unchecked.
+                    # GIFs skip the probe in gif/auto modes (they loop; any length OK).
+                    from app.models import FormatPref as _FP
+                    needs_duration_check = cand.is_clip or format_pref == _FP.clip
+                    if needs_duration_check:
                         try:
                             on_attempt(f"  checking length of {provider} {category} clip…")
                             cand = probe_duration(cand)
                         except Exception as e:
                             on_attempt(f"  duration probe failed: {e}")
                             continue
-                        if not meets_duration(cand):
+                        if not meets_duration(cand, enforce=(format_pref == _FP.clip)):
                             on_attempt(f"  wrong length ({cand.duration:.1f}s; need {CLIP_MIN_DURATION}-{CLIP_MAX_DURATION}s), will retry")
                             continue
                     # Accept — download and return.

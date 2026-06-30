@@ -5,12 +5,14 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import SQLModel, create_engine
+from sqlmodel import SQLModel, Session, create_engine
 
 import app.db as db_module
 import app.jobs as jobs_module
+import app.videos as videos_module
 from app.main import app
-from app.models import CopyResult, ClipInfo
+from app.models import CopyResult, ClipInfo, User
+from app.security import hash_password
 
 
 @pytest.fixture
@@ -22,13 +24,22 @@ def shared_db(monkeypatch):
     SQLModel.metadata.create_all(test_engine)
     monkeypatch.setattr(db_module, "engine", test_engine)
     monkeypatch.setattr(jobs_module, "engine", test_engine)
+    monkeypatch.setattr(videos_module, "engine", test_engine)
+    # Seed a test user the authenticated routes can act on behalf of.
+    with Session(test_engine) as s:
+        s.add(User(username="tester", password_hash=hash_password("pw123"), is_admin=False))
+        s.commit()
     yield test_engine
     test_engine.dispose()
 
 
 @pytest.fixture
 def client(shared_db):
-    return TestClient(app)
+    """A TestClient already authenticated as 'tester'."""
+    with TestClient(app) as c:
+        res = c.post("/api/login", json={"username": "tester", "password": "pw123"})
+        assert res.status_code == 200, res.text
+        yield c
 
 
 FIXTURE_CLIP = str(Path(__file__).parent / "fixtures" / "test_clip.mp4")
@@ -65,6 +76,8 @@ def test_render_returns_job_id_and_completes(client, sample_copy, tmp_path):
     fake_clip = ClipInfo(path=FIXTURE_CLIP, source="giphy", category="gifs",
                          original_url="https://x/abc.mp4", width=1280, height=720,
                          size_bytes=200_000)
+    # The mocks must stay active while the background worker thread runs, so the
+    # polling happens inside the `with` block (not just the POST).
     with patch("app.jobs.fetch_best_clip", return_value=fake_clip), \
          patch("app.jobs.render_video", return_value=str(tmp_path / "out.mp4")):
         res = client.post("/api/render", json={
@@ -72,9 +85,9 @@ def test_render_returns_job_id_and_completes(client, sample_copy, tmp_path):
             "template": "caption-top-bottom", "format_pref": "auto",
             "copy_data": sample_copy.model_dump(),
         })
-    assert res.status_code == 200
-    job_id = res.json()["job_id"]
-    final = _wait_for_terminal(client, job_id)
+        assert res.status_code == 200
+        job_id = res.json()["job_id"]
+        final = _wait_for_terminal(client, job_id)
     assert final["status"] == "done"
     assert final["result"]["output_path"].endswith(".mp4")
 
@@ -96,7 +109,7 @@ def test_cancel_route_sets_flag(client, sample_copy, tmp_path):
         cancel_res = client.post(f"/api/jobs/{job_id}/cancel")
         assert cancel_res.status_code == 200
         final = _wait_for_terminal(client, job_id, timeout=15)
-    assert final["status"] in ("cancelled", "done")  # cancel raced; either is acceptable
+        assert final["status"] in ("cancelled", "done")  # cancel raced; either is acceptable
 
 
 def test_cancel_missing_job_404(client):

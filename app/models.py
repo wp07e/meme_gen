@@ -70,11 +70,21 @@ class Job(SQLModel, table=True):
     template: str = SQLField(default="")
     format_pref: str = SQLField(default="auto")
     session_id: str = SQLField(default="")
+    owner_username: str = SQLField(default="", index=True)  # logged-in creator
+    output_filename: str = SQLField(default="")  # basename in output_dir; set on done
     cancel_requested: bool = SQLField(default=False)
     result_json: str | None = SQLField(default=None)  # serialized RenderResult
     error: str | None = SQLField(default=None)
     created_at: datetime = SQLField(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = SQLField(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class User(SQLModel, table=True):
+    """A login account. Created via the admin screen; admin is seeded on startup."""
+    username: str = SQLField(primary_key=True)
+    password_hash: str  # pbkdf2_sha256$iters$salt_b64$hash_b64 (see app.security)
+    is_admin: bool = SQLField(default=False)
+    created_at: datetime = SQLField(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class SeenClip(SQLModel, table=True):
@@ -92,3 +102,16 @@ class SessionState(SQLModel, table=True):
     session_id: str = SQLField(primary_key=True)
     rotate_index: int = SQLField(default=0)
     customer_id: str = SQLField(default="")
+
+
+class AssetBundle(SQLModel, table=True):
+    """A user-uploaded brand kit for the lower-third-brand template.
+
+    A bundle is a directory on disk (uploads/<owner>/<bundle_id>/) containing
+    named PNGs the template references (bottom-bar.png, watermark.png). The
+    filenames are fixed by the template contract, so only metadata is stored.
+    """
+    bundle_id: str = SQLField(primary_key=True)  # uuid hex
+    owner_username: str = SQLField(index=True)
+    name: str = SQLField(default="")  # user-given label
+    created_at: datetime = SQLField(default_factory=lambda: datetime.now(timezone.utc))

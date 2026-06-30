@@ -2,70 +2,223 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>meme_gen</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
-    label { display: block; margin: 0.75rem 0 0.25rem; font-weight: 600; }
-    input, select, textarea, button { width: 100%; padding: 0.5rem; font-size: 1rem; box-sizing: border-box; }
-    button { margin-top: 1rem; cursor: pointer; }
-    button:disabled { opacity: 0.5; cursor: default; }
-    .row { display: flex; gap: 1rem; }
-    .row > * { flex: 1; }
-    .radios { display: flex; gap: 1rem; margin-top: 0.25rem; }
-    .radios label { font-weight: 400; margin: 0; display: flex; gap: 0.3rem; align-items: center; }
-    .radios input { width: auto; }
-    pre { background: #f4f4f4; padding: 0.75rem; white-space: pre-wrap; border-radius: 6px; }
-    video { width: 100%; margin-top: 1rem; border-radius: 8px; }
-    .hidden { display: none; }
-    #status { margin-top: 1rem; font-weight: 600; min-height: 1.4em; }
-    #cancelBtn { background: #c33; color: white; margin-top: 0.5rem; width: auto; padding: 0.4rem 1rem; }
-    #cancelBtn:disabled { background: #999; }
-  </style>
+  <title>meme_gen — studio</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#0e0f13" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Manrope:wght@400..800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
-  <h1>meme_gen</h1>
 
-  <label for="topic">Topic / theme</label>
-  <input id="topic" placeholder="e.g. Monday motivation, gym" />
-
-  <label for="clipKeyword" style="margin-top:0.75rem;">Clip search keyword <span style="font-weight:400; color:#888;">(optional — used to narrow search; defaults to topic)</span></label>
-  <input id="clipKeyword" placeholder="e.g. workout, monday, tired" />
-
-  <div class="row">
-    <div>
-      <label for="tone">Tone</label>
-      <select id="tone">
-        <option>funny</option>
-        <option>motivational</option>
-        <option>relatable</option>
-        <option>wholesome</option>
-      </select>
+<!-- ===================== LOGIN ===================== -->
+<section id="login" class="login-screen hidden">
+  <div class="login-card">
+    <div class="brand">
+      <div class="brand-mark">M</div>
+      <div class="brand-name">meme_gen</div>
     </div>
-    <div>
-      <label for="template">Template</label>
-      <select id="template"></select>
+    <h1>Sign in</h1>
+    <p class="sub">Log in to create and manage your videos.</p>
+    <form id="loginForm">
+      <div class="field">
+        <label for="loginUser">Username</label>
+        <input id="loginUser" autocomplete="username" required />
+      </div>
+      <div class="field">
+        <label for="loginPass">Password</label>
+        <input id="loginPass" type="password" autocomplete="current-password" required />
+      </div>
+      <div id="loginError" class="status err hidden" role="alert"></div>
+      <button type="submit" class="primary" id="loginBtn" style="margin-top:0.5rem;">Log in</button>
+    </form>
+  </div>
+</section>
+
+<!-- ===================== APP ===================== -->
+<section id="app" class="wrap hidden">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">M</div>
+      <div class="brand-name">meme_gen</div>
+    </div>
+    <div class="user-menu">
+      <a href="#" id="adminLink" class="icon-btn hidden" title="Admin">⚙ Admin</a>
+      <span class="user-chip"><span class="user-avatar" id="userAvatar">?</span><span id="userName">—</span></span>
+      <button class="icon-btn" id="logoutBtn" title="Log out">Log out</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button data-tab="create" class="active">Create</button>
+    <button data-tab="library">Library</button>
+  </nav>
+
+  <!-- ---- Create tab ---- -->
+  <div id="tab-create">
+    <div class="panel">
+      <div class="wizard-head">
+        <h2>Create a video</h2>
+        <div class="steps" id="stepDots">
+          <span class="step-dot active" data-step="1"><b>1</b> Details</span>
+          <span class="step-dot" data-step="2"><b>2</b> Caption</span>
+          <span class="step-dot" data-step="3"><b>3</b> Render</span>
+        </div>
+      </div>
+
+      <!-- STEP 1: details up to format -->
+      <section id="step-1" class="wizard-step">
+        <div class="field">
+          <label for="topic">Topic / theme</label>
+          <input id="topic" placeholder="e.g. Monday motivation, gym" />
+        </div>
+
+        <div class="field">
+          <label for="clipKeyword">Clip search keyword <span class="hint">(optional — narrows search; defaults to topic)</span></label>
+          <input id="clipKeyword" placeholder="e.g. workout, monday, tired" />
+        </div>
+
+        <div class="row-2">
+          <div class="field">
+            <label for="tone">Tone</label>
+            <select id="tone">
+              <option>funny</option>
+              <option>motivational</option>
+              <option>relatable</option>
+              <option>wholesome</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="template">Template</label>
+            <select id="template"></select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Format</label>
+          <div class="radios" id="formatPref">
+            <label><input type="radio" name="format" value="auto" checked /> Auto</label>
+            <label><input type="radio" name="format" value="clip" /> Clip</label>
+            <label><input type="radio" name="format" value="gif" /> GIF</label>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 2: AI caption (editable) -->
+      <section id="step-2" class="wizard-step hidden">
+        <!-- Asset bundles — shown only for the lower-third-brand template -->
+        <div id="bundleBox" class="bundle-box hidden">
+          <div class="bundle-head">
+            <label class="field-label" style="margin:0;">Brand assets
+              <span class="help-icon" tabindex="0" role="button"
+                aria-label="Help: what to upload"
+                title="Upload a brand kit: one transparent PNG for the bottom bar (~1080×160) and one for the top-right watermark (~240×70). Transparent backgrounds work best.">?</span>
+            </label>
+            <button type="button" class="btn ghost" id="toggleUploadBtn" style="width:auto;padding:.4rem .8rem;font-size:.85rem;">+ Upload</button>
+          </div>
+
+          <div id="uploadForm" class="upload-form hidden">
+            <div class="field">
+              <label for="bundleName">Bundle name</label>
+              <input id="bundleName" placeholder="e.g. Summer campaign" />
+            </div>
+            <div class="row-2">
+              <div class="field">
+                <label for="bottomBarFile">Bottom bar PNG</label>
+                <input id="bottomBarFile" type="file" accept="image/png" />
+              </div>
+              <div class="field">
+                <label for="watermarkFile">Watermark PNG</label>
+                <input id="watermarkFile" type="file" accept="image/png" />
+              </div>
+            </div>
+            <div class="add-user-form" style="margin-bottom:0;">
+              <button type="button" class="btn primary" id="uploadBundleBtn" style="width:auto;padding:.7rem 1.2rem;">Save bundle</button>
+              <div id="uploadMsg" class="status" style="margin:0;"></div>
+            </div>
+          </div>
+
+          <div id="bundleList" class="bundle-list"></div>
+        </div>
+
+        <div class="field">
+          <label for="copyJson">Caption (generated by AI — edit freely)</label>
+          <textarea id="copyJson" rows="8" placeholder='Click "Generate caption" to draft one with AI, then edit as you like.'></textarea>
+        </div>
+        <button id="previewBtn" class="btn" style="width:auto;"><span class="step-num">✦</span>Generate caption (AI)</button>
+        <div id="copyHint" class="status" style="margin-top:.75rem;"></div>
+      </section>
+
+      <!-- STEP 3: render + result -->
+      <section id="step-3" class="wizard-step hidden">
+        <div id="status" class="status"></div>
+        <button id="renderBtn" class="primary" style="margin-top:0;">Render video</button>
+        <button id="cancelBtn" class="danger hidden">Cancel search</button>
+        <video id="result" controls class="hidden"></video>
+        <button id="resetBtn" class="btn ghost hidden" style="margin-top:1rem;width:auto;padding:.6rem 1.2rem;">↺ Start new</button>
+      </section>
+
+      <!-- Shared wizard nav -->
+      <div class="wizard-nav">
+        <button id="prevBtn" class="btn ghost" style="width:auto;">← Previous</button>
+        <button id="nextBtn" class="btn primary" style="width:auto;">Next →</button>
+      </div>
     </div>
   </div>
 
-  <label style="margin-top:0.75rem;">Format</label>
-  <div class="radios" id="formatPref">
-    <label><input type="radio" name="format" value="auto" checked /> Auto (clip → GIF fallback)</label>
-    <label><input type="radio" name="format" value="clip" /> Clip (video)</label>
-    <label><input type="radio" name="format" value="gif" /> GIF (animated)</label>
+  <!-- ---- Library tab ---- -->
+  <div id="tab-library" class="hidden">
+    <div class="section-head">
+      <h2>Your videos</h2>
+      <span class="count-pill" id="vidCount">0</span>
+    </div>
+    <div id="vidGrid" class="grid"></div>
+    <div id="bulkBar" class="bulk-bar hidden">
+      <span class="sel-count" id="selCount">0 selected</span>
+      <button class="btn ghost" id="clearSelBtn">Clear</button>
+      <button class="btn danger" id="bulkDeleteBtn">Delete selected</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== ADMIN ===================== -->
+<section id="admin" class="wrap hidden">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">M</div>
+      <div class="brand-name">meme_gen</div>
+    </div>
+    <a href="#" id="backToApp" class="icon-btn">← Back to app</a>
+  </header>
+
+  <div class="section-head"><h2>Manage users</h2></div>
+
+  <div class="panel admin-card">
+    <h2 style="font-size:1rem;">Add a login</h2>
+    <form id="addUserForm" class="add-user-form">
+      <div class="field">
+        <label for="newUser">Username</label>
+        <input id="newUser" autocomplete="off" required />
+      </div>
+      <div class="field">
+        <label for="newPass">Password</label>
+        <input id="newPass" type="password" autocomplete="new-password" required />
+      </div>
+      <button type="submit" class="btn primary">Add user</button>
+    </form>
+    <div id="addUserMsg" class="status"></div>
   </div>
 
-  <button id="previewBtn">1. Preview caption (AI)</button>
-  <div id="copyBox" class="hidden">
-    <label>Generated caption (edit freely, then render):</label>
-    <textarea id="copyJson" rows="8"></textarea>
-    <button id="renderBtn">2. Render video</button>
+  <div class="panel">
+    <h2 style="font-size:1rem;">Existing users</h2>
+    <div id="userList" class="user-list"></div>
   </div>
+</section>
 
-  <div id="status"></div>
-  <button id="cancelBtn" class="hidden">Cancel search</button>
-  <video id="result" controls class="hidden"></video>
+<div id="toast" class="toast hidden"></div>
 
-  <script src="/static/app.js"></script>
+<script src="/static/app.js"></script>
 </body>
 </html>

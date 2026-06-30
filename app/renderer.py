@@ -23,7 +23,8 @@ BG_DIM = 0.5
 
 
 def render_video(
-    *, clip: ClipInfo, copy: CopyResult, template: TemplateSpec, output_dir: str
+    *, clip: ClipInfo, copy: CopyResult, template: TemplateSpec, output_dir: str,
+    assets_dir: Path | None = None,
 ) -> str:
     base = VideoFileClip(clip.path)
     W, H = template.width, template.height
@@ -34,9 +35,11 @@ def render_video(
     duration = base.duration
     layers = [layer.with_duration(duration) for layer in sized_layers]
 
-    # Static image overlays (Canva PNGs).
+    # Static image overlays (Canva PNGs). Resolve from the bundle dir when one
+    # is supplied (per-render swap), else the default assets/ directory.
+    adir = Path(assets_dir) if assets_dir else ASSETS_DIR
     for ov in template.overlays:
-        img_path = ASSETS_DIR / ov.file
+        img_path = adir / ov.file
         if img_path.exists():
             img = ImageClip(str(img_path)).with_duration(duration)
             img = img.with_position((ov.x, ov.y))

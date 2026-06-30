@@ -21,8 +21,18 @@ class Settings:
     moonshot_base_url: str = "https://api.moonshot.ai/v1"
     host: str = field(default_factory=lambda: _env("HOST", "127.0.0.1"))
     port: int = field(default_factory=lambda: int(_env("PORT", "8000")))
-    output_dir: str = "output"
-    tmp_dir: str = "tmp"
+    output_dir: str = field(default_factory=lambda: _env("OUTPUT_DIR", "output"))
+    tmp_dir: str = field(default_factory=lambda: _env("TMP_DIR", "tmp"))
+    uploads_dir: str = field(default_factory=lambda: _env("UPLOADS_DIR", "uploads"))
+    # --- Auth (login + admin). Set SECRET_KEY/ADMIN_* in .env for a real deploy. ---
+    secret_key: str = field(default_factory=lambda: _env("SECRET_KEY", "dev-only-insecure-secret-change-me"))
+    admin_username: str = field(default_factory=lambda: _env("ADMIN_USERNAME", "testadmin"))
+    admin_password: str = field(default_factory=lambda: _env("ADMIN_PASSWORD", "testpass123"))
+
+
+# Default secret used when SECRET_KEY is not configured. Compared against at
+# startup to warn if the app is running with the insecure shipped default.
+DEFAULT_SECRET_KEY = "dev-only-insecure-secret-change-me"
 
 
 def get_settings() -> Settings:

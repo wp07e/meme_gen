@@ -7,6 +7,7 @@ the search loop; once rendering starts, it runs to completion.
 import json
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
 from sqlmodel import Session, select
 
@@ -24,13 +25,13 @@ from app.models import Job, SeenClip, SessionState, FormatPref, CopyResult, Rend
 # ---------------------------------------------------------------------------
 
 def create_job(*, session_id: str, topic: str, template: str,
-               format_pref: FormatPref) -> str:
+               format_pref: FormatPref, owner_username: str = "") -> str:
     """Insert a new Job row, return its id."""
     job_id = uuid.uuid4().hex
     job = Job(
         id=job_id, session_id=session_id, topic=topic, template=template,
         format_pref=format_pref.value, status="searching",
-        progress_message="Starting…",
+        progress_message="Starting…", owner_username=owner_username,
     )
     with Session(engine) as s:
         s.add(job)
@@ -66,6 +67,26 @@ def _update_job(session: Session, job_id: str, **fields):
     job.updated_at = datetime.now(timezone.utc)
     session.add(job)
     session.commit()
+
+
+def _resolve_assets_dir(asset_bundle_id: str | None, owner_username: str,
+                        settings: Settings) -> Path | None:
+    """Resolve a requested bundle to its on-disk directory, or None for defaults.
+
+    asset_bundle_id=="random" picks uniformly among the owner's bundles. Any
+    miss (unknown id, unowned, no bundles for random) returns None so the render
+    silently falls back to the default assets/ — never hard-fails the render.
+    """
+    if not asset_bundle_id or not owner_username:
+        return None
+    from app.bundles import bundle_assets_dir, list_bundles
+    if asset_bundle_id == "random":
+        owned = list_bundles(owner_username)
+        if not owned:
+            return None
+        import random
+        asset_bundle_id = random.choice(owned).bundle_id
+    return bundle_assets_dir(asset_bundle_id, owner_username, settings.uploads_dir)
 
 
 # ---------------------------------------------------------------------------
@@ -108,6 +129,7 @@ def run_render_job(
     *, job_id: str, topic: str, tone: str, template_name: str,
     format_pref: FormatPref, clip_keyword: str | None, session_id: str,
     settings: Settings, copy_result: CopyResult | None = None,
+    asset_bundle_id: str | None = None, owner_username: str = "",
 ) -> None:
     """Run the full pipeline in a worker thread, updating the Job row.
 
@@ -117,6 +139,11 @@ def run_render_job(
     session = Session(engine)
     try:
         spec = load_template(template_name)
+
+        # Resolve an asset bundle (per-render PNG swap) if one was requested.
+        # "random" picks among the owner's bundles server-side. Falls back to the
+        # default assets/ dir if the bundle is missing/unowned — never hard-fails.
+        assets_dir = _resolve_assets_dir(asset_bundle_id, owner_username, settings)
 
         # 1. Copy (if not supplied by the UI's preview step).
         if copy_result is None:
@@ -171,11 +198,13 @@ def run_render_job(
                     progress_message="Clip found. Rendering — please wait (~20-40s)…")
         out_path = render_video(
             clip=clip, copy=copy_result, template=spec, output_dir=settings.output_dir,
+            assets_dir=assets_dir,
         )
 
         result = RenderResult(output_path=out_path, copy_result=copy_result, clip=clip)
         _update_job(session, job_id, status="done", progress_message="Done.",
-                    result_json=result.model_dump_json())
+                    result_json=result.model_dump_json(),
+                    output_filename=out_path.rsplit("/", 1)[-1])
 
     except Exception as e:
         _update_job(session, job_id, status="failed",

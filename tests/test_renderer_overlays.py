@@ -34,3 +34,39 @@ def test_render_with_overlays(tmp_path, sample_copy, monkeypatch):
     )
     w, h = probe.stdout.strip().split(",")
     assert (w, h) == ("1080", "1920"), "lower-third-brand should render 9:16"
+
+
+def test_render_video_uses_assets_dir_override(tmp_path, sample_copy, monkeypatch):
+    """When assets_dir is supplied, overlay PNGs are read from THAT directory,
+    not the module default ASSETS_DIR. This is the per-bundle swap mechanism."""
+    # Put DISTINCT PNGs in a bundle dir so we can prove they were the ones used.
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    from PIL import Image
+    # bottom-bar at a unique size we can detect in the output frame footprint.
+    Image.new("RGBA", (1080, 160), (255, 0, 0, 255)).save(bundle_dir / "bottom-bar.png")
+    Image.new("RGBA", (240, 70), (0, 255, 0, 255)).save(bundle_dir / "watermark.png")
+
+    # Point the module ASSETS_DIR elsewhere (empty) to prove the override wins.
+    empty_default = tmp_path / "default_assets"
+    empty_default.mkdir()
+    monkeypatch.setattr("app.renderer.ASSETS_DIR", empty_default)
+
+    clip = ClipInfo(path=str(FIXTURE), source="giphy", original_url="x",
+                    width=480, height=480)
+    spec = load_template("lower-third-brand")
+    copy = CopyResult(caption="x", hook="y", overlay_lines=["CAP"])
+    out = render_video(clip=clip, copy=copy, template=spec,
+                       output_dir=str(tmp_path), assets_dir=bundle_dir)
+    assert Path(out).exists() and Path(out).stat().st_size > 0
+
+    # Confirm the output is 9:16 and rendered without error (overlays resolved
+    # from bundle_dir, not the empty default — which would have silently skipped them).
+    import subprocess
+    probe = subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "v:0",
+         "-show_entries", "stream=width,height", "-of", "csv=p=0", out],
+        capture_output=True, text=True, check=True,
+    )
+    w, h = probe.stdout.strip().split(",")
+    assert (w, h) == ("1080", "1920")

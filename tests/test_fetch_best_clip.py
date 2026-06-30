@@ -202,3 +202,46 @@ def test_loop_does_not_probe_gifs(mem_session, tmp_path):
             on_attempt=lambda m: None, is_cancelled=lambda: False,
         )
     assert probed == []  # GIFs never probed
+
+
+# ---- format_pref=clip must gate Giphy gif-mp4s too -----------------------
+# Regression: Giphy serves everything under category='gifs', so when a user
+# picks "clip" the duration gate (keyed on category='clips') was bypassed,
+# letting a 1-second gif-mp4 through. With format_pref=clip the 5-15s gate
+# applies to ALL candidates, including Giphy gifs.
+
+def test_clip_pref_probes_and_rejects_short_giphy_gif(mem_session, tmp_path):
+    """format_pref=clip: a short Giphy gif candidate is probed and rejected."""
+    probed = []
+    def fake_probe(clip):
+        probed.append(clip.original_url)
+        return clip.model_copy(update={"duration": 1.0})  # too short
+    with patch("app.clip_source.search_giphy", return_value=[_hd_clip(url="https://g/short.mp4")]), \
+         patch("app.clip_source.search_klipy", return_value=[]), \
+         patch("app.clip_source.probe_duration", side_effect=fake_probe):
+        with pytest.raises(LookupError):
+            fetch_best_clip(
+                query="x", format_pref=FormatPref.clip, rotate_start="giphy",
+                giphy_key="g", klipy_key="k", klipy_customer_id="c",
+                session_id="s1", session=mem_session, dest_dir=str(tmp_path),
+                on_attempt=lambda m: None, is_cancelled=lambda: False,
+                max_attempts=2,
+            )
+    assert probed == ["https://g/short.mp4"]  # was probed despite category='gifs'
+
+
+def test_clip_pref_accepts_in_range_giphy_gif(mem_session, tmp_path):
+    """format_pref=clip: a Giphy gif in 5-15s is accepted after probing."""
+    def fake_probe(clip):
+        return clip.model_copy(update={"duration": 6.0})
+    with patch("app.clip_source.search_giphy", return_value=[_hd_clip(url="https://g/ok.mp4")]), \
+         patch("app.clip_source.search_klipy", return_value=[]), \
+         patch("app.clip_source.probe_duration", side_effect=fake_probe), \
+         patch("app.clip_source.download_clip", side_effect=_mk_download(tmp_path)):
+        clip = fetch_best_clip(
+            query="x", format_pref=FormatPref.clip, rotate_start="giphy",
+            giphy_key="g", klipy_key="k", klipy_customer_id="c",
+            session_id="s1", session=mem_session, dest_dir=str(tmp_path),
+            on_attempt=lambda m: None, is_cancelled=lambda: False,
+        )
+    assert clip.duration == 6.0

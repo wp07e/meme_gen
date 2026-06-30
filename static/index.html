@@ -29,7 +29,7 @@
   <label for="topic">Topic / theme</label>
   <input id="topic" placeholder="e.g. Monday motivation, gym" />
 
-  <label for="clipKeyword" style="margin-top:0.75rem;">Clip search keyword <span style="font-weight:400; color:#888;">(optional — used to search Giphy/Klipy; defaults to topic)</span></label>
+  <label for="clipKeyword" style="margin-top:0.75rem;">Clip search keyword <span style="font-weight:400; color:#888;">(optional — used to narrow search; defaults to topic)</span></label>
   <input id="clipKeyword" placeholder="e.g. workout, monday, tired" />
 
   <div class="row">
@@ -55,9 +55,9 @@
     <label><input type="radio" name="format" value="gif" /> GIF (animated)</label>
   </div>
 
-  <button id="previewBtn">1. Preview copy (AI)</button>
+  <button id="previewBtn">1. Preview caption (AI)</button>
   <div id="copyBox" class="hidden">
-    <label>Generated copy (edit freely, then render):</label>
+    <label>Generated caption (edit freely, then render):</label>
     <textarea id="copyJson" rows="8"></textarea>
     <button id="renderBtn">2. Render video</button>
   </div>

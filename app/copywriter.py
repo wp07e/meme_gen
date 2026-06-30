@@ -96,3 +96,34 @@ def _normalize_overlay_lines(raw) -> list[str]:
     if not lines:
         raise ValueError("overlay_lines was empty after normalization.")
     return lines
+
+
+def suggest_keywords(
+    *, query: str, api_key: str, model: str,
+    base_url: str = "https://api.moonshot.ai/v1", count: int = 3,
+) -> list[str]:
+    """Ask Moonshot for alternative search keywords for a meme clip search.
+
+    Used by the retry loop when truncation has already been tried. Returns up to
+    `count` short, lowercase keyword phrases suitable for Giphy/Klipy search.
+    """
+    client = OpenAI(api_key=api_key, base_url=base_url)
+    response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": (
+                "You suggest alternative search keywords for finding meme clips. "
+                f"Return ONLY a JSON object: {{\"keywords\": [\"{count} short phrases\"]}}. "
+                "Each phrase is 1-3 words, lowercase, no quotes. No prose."
+            )},
+            {"role": "user", "content": f"Original search: {query}\nSuggest {count} alternatives."},
+        ],
+        temperature=1 if _is_reasoning_model(model) else 0.9,
+        max_tokens=4000 if _is_reasoning_model(model) else 300,
+    )
+    content = response.choices[0].message.content or ""
+    if not content.strip():
+        content = getattr(response.choices[0].message, "reasoning_content", "") or ""
+    data = _extract_json(content)
+    kws = [str(k).strip().lower() for k in data.get("keywords", []) if str(k).strip()]
+    return kws[:count]

@@ -27,12 +27,15 @@ def _fetch_giphy(query: str, api_key: str, dest_dir: str) -> ClipInfo:
     items = resp.json().get("data", [])
     if not items:
         raise LookupError(f"Giphy returned no clips for '{query}'")
-    original = items[0]["images"]["original"]
+    images = items[0]["images"]
+    # Prefer the HD variant (1080p) when present; fall back to original.
+    # `original` is often only 480p and looks pixelated when upscaled to 1080.
+    chosen = images.get("hd") or images["original"]
     return _download(
-        mp4_url=original["mp4"],
+        mp4_url=chosen["mp4"],
         source="giphy",
-        width=int(original.get("width") or 0) or None,
-        height=int(original.get("height") or 0) or None,
+        width=int(chosen.get("width") or 0) or None,
+        height=int(chosen.get("height") or 0) or None,
         dest_dir=dest_dir,
     )
 

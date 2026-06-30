@@ -2,8 +2,11 @@
 import datetime as dt
 from pathlib import Path
 
+import numpy as np
+from PIL import Image, ImageFilter
 from moviepy import (
     VideoFileClip,
+    VideoClip,
     TextClip,
     ImageClip,
     CompositeVideoClip,
@@ -14,17 +17,22 @@ from app.templates import TemplateSpec
 
 ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
 
+# Background blur radius (px) and dim factor for the blurred-fill layer.
+BLUR_RADIUS = 20
+BG_DIM = 0.5
+
 
 def render_video(
     *, clip: ClipInfo, copy: CopyResult, template: TemplateSpec, output_dir: str
 ) -> str:
     base = VideoFileClip(clip.path)
+    W, H = template.width, template.height
 
-    # Resize/crop to the template aspect ratio.
-    sized = _fit_to_size(base, template.width, template.height)
-    duration = sized.duration
-
-    layers = [sized]
+    # Composite the clip with a blurred background fill (nothing cropped):
+    # a blurred, dimmed copy fills the frame, the sharp clip sits contained on top.
+    sized_layers = _build_blur_fill(base, W, H)
+    duration = base.duration
+    layers = [layer.with_duration(duration) for layer in sized_layers]
 
     # Static image overlays (Canva PNGs).
     for ov in template.overlays:
@@ -80,18 +88,40 @@ def render_video(
     return str(out_path)
 
 
-def _fit_to_size(clip: VideoFileClip, width: int, height: int) -> VideoFileClip:
-    """Resize preserving aspect, then crop center to exact target size."""
-    target_ratio = width / height
-    src_ratio = clip.w / clip.h
-    if src_ratio > target_ratio:
-        # Source is wider — fit height, crop width.
-        scaled = clip.resized(height=height)
-    else:
-        scaled = clip.resized(width=width)
-    x_center = (scaled.w - width) / 2
-    y_center = (scaled.h - height) / 2
-    return scaled.cropped(x1=x_center, y1=y_center, x2=x_center + width, y2=y_center + height)
+def _build_blur_fill(clip: VideoFileClip, W: int, H: int) -> list:
+    """Return [blurred_background, sharp_foreground] clips that together fill W×H.
+
+    Background: the clip scaled to COVER the frame, center-cropped to exact size,
+    then blurred and dimmed — fills empty space without cropping the subject.
+    Foreground: the clip scaled to CONTAIN (whole image visible), centered.
+    Used as the bottom two layers of the composite.
+    """
+    sw, sh = clip.w, clip.h
+
+    # --- Background: cover + crop + blur ---
+    cover_r = max(W / sw, H / sh)
+    cw, ch = int(sw * cover_r), int(sh * cover_r)
+    bg_scaled = clip.resized((cw, ch))
+    bx = (cw - W) / 2
+    by = (ch - H) / 2
+    bg_cropped = bg_scaled.cropped(x1=bx, y1=by, x2=bx + W, y2=by + H)
+
+    def _blurred_dim_frame(get_frame, t):
+        frame = get_frame(t)
+        img = Image.fromarray(frame).filter(ImageFilter.GaussianBlur(BLUR_RADIUS))
+        return (np.array(img) * BG_DIM).astype("uint8")
+
+    bg = VideoClip(
+        lambda t: _blurred_dim_frame(bg_cropped.get_frame, t),
+        duration=clip.duration,
+    ).with_fps(clip.fps or 30)
+
+    # --- Foreground: contain (fit whole image) + center ---
+    fit_r = min(W / sw, H / sh)
+    fw, fh = int(sw * fit_r), int(sh * fit_r)
+    fg = clip.resized((fw, fh)).with_position(((W - fw) / 2, (H - fh) / 2))
+
+    return [bg, fg]
 
 
 def _resolve_position(pos, template: TemplateSpec, text_size: tuple[int, int]):

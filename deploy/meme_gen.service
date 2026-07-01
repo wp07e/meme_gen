@@ -1,0 +1,58 @@
+# systemd unit for the meme_gen FastAPI app.
+#
+# Install on the VPS:
+#   sudo cp deploy/meme_gen.service /etc/systemd/system/meme_gen.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now meme_gen
+#
+# View logs:
+#   sudo journalctl -u meme_gen -f
+#
+# NOTE: adjust the User, Group, and WorkingDirectory below to match your VPS
+# layout. The paths shown (/opt/meme_gen, the 'memegen' user) are the
+# recommended layout documented in deploy/README.md.
+
+[Unit]
+Description=meme_gen FastAPI app (gunicorn + uvicorn worker)
+After=network.target
+
+[Service]
+Type=notify
+User=memegen
+Group=memegen
+WorkingDirectory=/opt/meme_gen
+EnvironmentFile=/opt/meme_gen/.env
+
+# gunicorn loads deploy/gunicorn_conf.py (workers, bind 127.0.0.1:8000, logs).
+ExecStart=/opt/meme_gen/venv/bin/gunicorn app.main:app -c deploy/gunicorn_conf.py
+
+ExecReload=/bin/kill -s HUP $MAINPID
+
+KillMode=mixed
+TimeoutStopSec=30
+
+Restart=always
+RestartSec=3
+
+# --- Hardening ---------------------------------------------------------------
+# These are compatible with the app's need to write to output/, tmp/, uploads/
+# under WorkingDirectory. ProtectSystem=full makes /usr,/boot read-only but
+# leaves the service's own tree writable viaReadWritePaths below.
+NoNewPrivileges=true
+# ProtectSystem=full
+#ProtectHome=true
+#ReadWritePaths=/opt/meme_gen /var/log/meme_gen
+PrivateTmp=true
+PrivateDevices=true
+#ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+#RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+#RestrictNamespaces=true
+LockPersonality=true
+
+# Memory write protection; harmless for a normal Python app.
+MemoryDenyWriteExecute=false
+
+[Install]
+WantedBy=multi-user.target

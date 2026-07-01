@@ -1,6 +1,24 @@
 const $ = (id) => document.getElementById(id);
 
 // =========================================================================
+// Analytics
+// =========================================================================
+
+/**
+ * Push a custom event to Google Tag Manager via dataLayer.
+ * Mirrors the helper in Vitaroast's analytics.ts.
+ */
+function trackEvent(eventName, params) {
+  if (typeof window === "undefined") return;
+  const safeParams = params
+    ? Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined))
+    : {};
+  if (window.dataLayer) {
+    window.dataLayer.push({ event: eventName, ...safeParams });
+  }
+}
+
+// =========================================================================
 // Small utilities
 // =========================================================================
 
@@ -45,6 +63,7 @@ function setView(name) {
 let me = null; // {username, is_admin}
 
 async function bootstrap() {
+  trackEvent("page_view", { path: location.pathname });
   try {
     const res = await api("/api/me");
     if (res.ok) {
@@ -67,6 +86,7 @@ function enterApp() {
 // ---- login form ----
 $("loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
+  trackEvent("login_submit", { username: $("loginUser").value });
   const err = $("loginError");
   hide(err);
   $("loginBtn").disabled = true;
@@ -87,13 +107,14 @@ $("loginForm").addEventListener("submit", async (e) => {
 });
 
 $("logoutBtn").addEventListener("click", async () => {
+  trackEvent("logout_click", { username: me?.username });
   await api("/api/logout", { method: "POST" });
   me = null;
   setView("login");
 });
 
-$("adminLink").addEventListener("click", (e) => { e.preventDefault(); openAdmin(); });
-$("backToApp").addEventListener("click", (e) => { e.preventDefault(); setView("app"); });
+$("adminLink").addEventListener("click", (e) => { e.preventDefault(); trackEvent("admin_open_click"); openAdmin(); });
+$("backToApp").addEventListener("click", (e) => { e.preventDefault(); trackEvent("admin_back_click"); setView("app"); });
 
 // ---- tabs ----
 function switchTab(name) {
@@ -106,7 +127,10 @@ function switchTab(name) {
   if (name === "library") { hide($("tab-create")); loadVideos(); }
 }
 for (const b of document.querySelectorAll(".tabs button")) {
-  b.addEventListener("click", () => switchTab(b.dataset.tab));
+  b.addEventListener("click", () => {
+    trackEvent("tab_switch", { tab: b.dataset.tab });
+    switchTab(b.dataset.tab);
+  });
 }
 
 // =========================================================================
@@ -177,8 +201,14 @@ function gotoStep(n) {
   }
 }
 
-$("prevBtn").addEventListener("click", () => gotoStep(currentStep - 1));
-$("nextBtn").addEventListener("click", () => gotoStep(currentStep + 1));
+$("prevBtn").addEventListener("click", () => {
+  trackEvent("wizard_nav", { direction: "prev", from_step: currentStep, to_step: currentStep - 1 });
+  gotoStep(currentStep - 1);
+});
+$("nextBtn").addEventListener("click", () => {
+  trackEvent("wizard_nav", { direction: "next", from_step: currentStep, to_step: currentStep + 1 });
+  gotoStep(currentStep + 1);
+});
 
 // Live-update the Next-button gate + hint as the user edits the caption box,
 // so hand-written valid JSON unlocks Next without an AI call.
@@ -237,6 +267,7 @@ function renderBundles() {
       e.preventDefault();
       const id = btn.dataset.delbundle;
       if (!confirm("Delete this brand bundle?")) return;
+      trackEvent("delete_bundle_click", { bundle_id: id });
       const res = await fetch(`/api/bundles/${id}`, { method: "DELETE" });
       if (res.ok) { toast("Bundle deleted.", "ok"); await loadBundles(); }
       else { toast("Could not delete bundle.", "err"); }
@@ -250,10 +281,12 @@ function selectedBundleId() {
 }
 
 $("toggleUploadBtn").addEventListener("click", () => {
+  trackEvent("toggle_upload_click", { visible: $("uploadForm").classList.contains("hidden") });
   $("uploadForm").classList.toggle("hidden");
 });
 
 $("uploadBundleBtn").addEventListener("click", async () => {
+  trackEvent("save_bundle_click", { bundle_name: $("bundleName").value });
   const msg = $("uploadMsg");
   msg.textContent = ""; msg.className = "status";
   const name = $("bundleName").value.trim();
@@ -286,6 +319,11 @@ function formatPref() {
 
 // ---- Step 2: AI caption --------------------------------------------------
 $("previewBtn").addEventListener("click", async () => {
+  trackEvent("generate_caption_click", {
+    topic: $("topic").value,
+    tone: $("tone").value,
+    template: $("template").value,
+  });
   const hint = $("copyHint");
   hint.textContent = "Generating caption…";
   hint.className = "status";
@@ -308,15 +346,28 @@ $("previewBtn").addEventListener("click", async () => {
   captionReady = true;
   hint.textContent = "Caption ready — edit freely, then Next.";
   hint.className = "status ok";
+  trackEvent("generate_caption_success", {
+    topic: $("topic").value,
+    tone: $("tone").value,
+    template: $("template").value,
+  });
   gotoStep(2);  // refreshes the Next-button gate (now enabled)
 });
 
 // ---- Step 3: render + poll ----------------------------------------------
 $("renderBtn").addEventListener("click", async () => {
+  trackEvent("render_click", {
+    topic: $("topic").value,
+    tone: $("tone").value,
+    template: $("template").value,
+    format_pref: formatPref(),
+    include_audio: $("soundToggle").checked,
+  });
   let copy;
   try { copy = JSON.parse($("copyJson").value); } catch {
     $("status").textContent = "Caption JSON is invalid.";
     $("status").className = "status err";
+    trackEvent("render_error", { reason: "invalid_caption_json" });
     return;
   }
   $("renderBtn").disabled = true;
@@ -341,13 +392,16 @@ $("renderBtn").addEventListener("click", async () => {
     }),
   });
   if (!res.ok) {
-    $("status").textContent = "Render failed: " + (await res.text());
+    const errText = await res.text();
+    $("status").textContent = "Render failed: " + errText;
     $("status").className = "status err";
     $("renderBtn").disabled = false;
+    trackEvent("render_error", { reason: "api_error", detail: errText });
     return;
   }
   const data = await res.json();
   currentJobId = data.job_id;
+  trackEvent("render_started", { job_id: currentJobId });
   startPolling();
 });
 
@@ -386,11 +440,14 @@ async function pollJob() {
     show($("result"));
     $("status").textContent = "Done: " + filename;
     $("status").className = "status ok";
+    trackEvent("render_done", { job_id: currentJobId, filename });
   } else if (job.status === "cancelled") {
+    trackEvent("render_cancelled", { job_id: currentJobId });
     $("status").textContent = "Cancelled.";
   } else {
     $("status").textContent = "Failed: " + (job.error || "unknown error");
     $("status").className = "status err";
+    trackEvent("render_failed", { job_id: currentJobId, error: job.error || "unknown error" });
   }
 }
 
@@ -400,6 +457,7 @@ function stopPolling() {
 
 $("cancelBtn").addEventListener("click", async () => {
   if (!currentJobId) return;
+  trackEvent("cancel_search_click", { job_id: currentJobId });
   $("cancelBtn").disabled = true;
   $("status").textContent = "Cancelling…";
   await fetch(`/api/jobs/${currentJobId}/cancel`, { method: "POST" });
@@ -407,6 +465,7 @@ $("cancelBtn").addEventListener("click", async () => {
 
 // Reset the wizard to its initial state (step 1, everything cleared).
 $("resetBtn").addEventListener("click", () => {
+  trackEvent("start_new_click");
   $("topic").value = "";
   $("clipKeyword").value = "";
   $("tone").selectedIndex = 0;
@@ -497,9 +556,15 @@ function renderVideos() {
     btn.addEventListener("click", async () => {
       if (!confirm("Remove this video? It will be deleted from disk.")) return;
       const id = btn.dataset.del;
+      trackEvent("remove_video_click", { video_id: id });
       const res = await api(`/api/videos/${id}`, { method: "DELETE" });
       if (res.ok) { toast("Video removed.", "ok"); await loadVideos(); }
       else { toast("Could not remove video.", "err"); }
+    });
+  });
+  grid.querySelectorAll("a[download]").forEach((link) => {
+    link.addEventListener("click", () => {
+      trackEvent("download_video_click", { filename: link.getAttribute("download") });
     });
   });
 
@@ -513,6 +578,7 @@ function updateBulkBar() {
 }
 
 $("clearSelBtn").addEventListener("click", () => {
+  trackEvent("clear_selection_click", { selected_count: selected.size });
   selected.clear();
   document.querySelectorAll(".card-select").forEach((cb) => { cb.checked = false; cb.closest(".card").classList.remove("selected"); });
   updateBulkBar();
@@ -522,6 +588,7 @@ $("bulkDeleteBtn").addEventListener("click", async () => {
   const ids = [...selected];
   if (ids.length === 0) return;
   if (!confirm(`Delete ${ids.length} selected video(s)? This cannot be undone.`)) return;
+  trackEvent("bulk_delete_click", { selected_count: ids.length });
   const res = await api("/api/videos/bulk-delete", {
     method: "POST",
     body: JSON.stringify({ job_ids: ids }),
@@ -568,6 +635,7 @@ async function loadUsers() {
       btn.addEventListener("click", async () => {
         const uname = btn.dataset.deluser;
         if (!confirm(`Delete user "${uname}"? They will no longer be able to log in.`)) return;
+        trackEvent("delete_user_click", { username: uname });
         const res = await api(`/api/admin/users/${encodeURIComponent(uname)}`, { method: "DELETE" });
         if (res.ok) { toast(`User "${uname}" deleted.`, "ok"); await loadUsers(); }
         else { const d = await res.json().catch(() => ({})); toast(d.detail || "Delete failed.", "err"); }
@@ -580,6 +648,7 @@ async function loadUsers() {
 
 $("addUserForm").addEventListener("submit", async (e) => {
   e.preventDefault();
+  trackEvent("add_user_submit", { username: $("newUser").value.trim() });
   const msg = $("addUserMsg");
   const u = $("newUser").value.trim();
   const p = $("newPass").value;

@@ -28,6 +28,8 @@ class Settings:
     secret_key: str = field(default_factory=lambda: _env("SECRET_KEY", "dev-only-insecure-secret-change-me"))
     admin_username: str = field(default_factory=lambda: _env("ADMIN_USERNAME", "testadmin"))
     admin_password: str = field(default_factory=lambda: _env("ADMIN_PASSWORD", "testpass123"))
+    # --- Analytics. Set GTM_CONTAINER_ID in .env; leave blank to disable GTM. ---
+    gtm_container_id: str = field(default_factory=lambda: _env("GTM_CONTAINER_ID", ""))
 
 
 # Default secret used when SECRET_KEY is not configured. Compared against at

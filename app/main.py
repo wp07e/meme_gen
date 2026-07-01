@@ -3,7 +3,7 @@ import threading
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, UploadFile, File, Form
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -31,6 +31,24 @@ from app.bundles import BundleError, create_bundle, delete_bundle, list_bundles
 app = FastAPI(title="meme_gen")
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# Placeholder tokens in static/index.html are replaced with the real GTM container ID
+# at serve time so the ID never has to live in the public repo.
+GTM_HEAD_PLACEHOLDER = "<!-- __GTM_HEAD__ -->"
+GTM_BODY_PLACEHOLDER = "<!-- __GTM_BODY__ -->"
+
+GTM_HEAD_TEMPLATE = """<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){{w[l]=w[l]||[];w[l].push({{'gtm.start':
+new Date().getTime(),event:'gtm.js'}});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+}})(window,document,'script','dataLayer','{gtm_id}');</script>
+<!-- End Google Tag Manager -->"""
+
+GTM_BODY_TEMPLATE = """<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id={gtm_id}"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->"""
 
 SESSION_COOKIE_ANON = "meme_gen_session"  # anonymous clip-dedupe session (unchanged)
 
@@ -92,7 +110,17 @@ class BulkDeleteReq(BaseModel):
 
 @app.get("/")
 def index():
-    return FileResponse(STATIC_DIR / "index.html")
+    settings = get_settings()
+    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    if settings.gtm_container_id:
+        head = GTM_HEAD_TEMPLATE.format(gtm_id=settings.gtm_container_id)
+        body = GTM_BODY_TEMPLATE.format(gtm_id=settings.gtm_container_id)
+    else:
+        head = "<!-- GTM disabled: set GTM_CONTAINER_ID in .env to enable -->"
+        body = ""
+    html = html.replace(GTM_HEAD_PLACEHOLDER, head)
+    html = html.replace(GTM_BODY_PLACEHOLDER, body)
+    return HTMLResponse(content=html)
 
 
 @app.post("/api/login")

@@ -69,6 +69,7 @@ class RenderReq(BaseModel):
     copy_data: dict | None = None
     clip_keyword: str | None = None
     asset_bundle_id: str | None = None  # bundle id, or "random"
+    include_audio: bool = False  # keep clip audio in the output (muted by default)
 
 
 class LoginReq(BaseModel):
@@ -171,6 +172,7 @@ def api_render(req: RenderReq, request: Request, user: Principal = Depends(requi
             clip_keyword=req.clip_keyword, session_id=anon_session,
             settings=settings, copy_result=copy_obj,
             asset_bundle_id=req.asset_bundle_id, owner_username=user.username,
+            include_audio=req.include_audio,
         ),
         daemon=True,
     ).start()

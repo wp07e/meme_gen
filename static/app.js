@@ -337,6 +337,7 @@ $("renderBtn").addEventListener("click", async () => {
       copy_data: copy,
       clip_keyword: $("clipKeyword").value.trim() || null,
       asset_bundle_id: bundleId,
+      include_audio: $("soundToggle").checked,
     }),
   });
   if (!res.ok) {

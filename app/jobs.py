@@ -130,6 +130,7 @@ def run_render_job(
     format_pref: FormatPref, clip_keyword: str | None, session_id: str,
     settings: Settings, copy_result: CopyResult | None = None,
     asset_bundle_id: str | None = None, owner_username: str = "",
+    include_audio: bool = False,
 ) -> None:
     """Run the full pipeline in a worker thread, updating the Job row.
 
@@ -198,7 +199,7 @@ def run_render_job(
                     progress_message="Clip found. Rendering — please wait (~20-40s)…")
         out_path = render_video(
             clip=clip, copy=copy_result, template=spec, output_dir=settings.output_dir,
-            assets_dir=assets_dir,
+            assets_dir=assets_dir, include_audio=include_audio,
         )
 
         result = RenderResult(output_path=out_path, copy_result=copy_result, clip=clip)

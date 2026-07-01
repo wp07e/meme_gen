@@ -35,10 +35,10 @@ sudo apt install -y nginx certbot python3-certbot-nginx python3-venv ffmpeg ufw
 ## 2. Get the code onto the VPS
 
 ```bash
-sudo mkdir -p /opt/meme_gen
-sudo chown "$USER":"$USER" /opt/meme_gen
-git clone <your-repo-url> /opt/meme_gen
-cd /opt/meme_gen
+sudo mkdir -p /srv/meme_gen
+sudo chown "$USER":"$USER" /srv/meme_gen
+git clone <your-repo-url> /srv/meme_gen
+cd /srv/meme_gen
 ```
 
 ## 3. Python environment + dependencies
@@ -52,10 +52,10 @@ pip install -r requirements.txt
 
 ## 4. Create the `.env`
 
-Copy your local `.env` (the one with the real API keys) to `/opt/meme_gen/.env`. **Two things you must change for production:**
+Copy your local `.env` (the one with the real API keys) to `/srv/meme_gen/.env`. **Two things you must change for production:**
 
 ```bash
-# /opt/meme_gen/.env
+# /srv/meme_gen/.env
 SECRET_KEY=<generate a strong random key, e.g. `python3 -c "import secrets;print(secrets.token_hex(32))"`>
 ADMIN_PASSWORD=<a strong password>
 
@@ -69,7 +69,7 @@ MOONSHOT_API_KEY=...
 ```
 
 ```bash
-sudo chmod 600 /opt/meme_gen/.env   # it contains secrets
+sudo chmod 600 /srv/meme_gen/.env   # it contains secrets
 ```
 
 If the app prints `WARNING: SECRET_KEY is the insecure default…` on startup, you forgot to set it.
@@ -78,7 +78,7 @@ If the app prints `WARNING: SECRET_KEY is the insecure default…` on startup, y
 
 ```bash
 sudo useradd --system --no-create-home --shell /usr/sbin/nologin memegen
-sudo chown -R memegen:memegen /opt/meme_gen
+sudo chown -R memegen:memegen /srv/meme_gen
 ```
 
 ## 6. Log directory
@@ -177,7 +177,7 @@ sudo systemctl status   meme_gen
 To deploy a code update:
 
 ```bash
-cd /opt/meme_gen
+cd /srv/meme_gen
 git pull
 source venv/bin/activate
 pip install -r requirements.txt     # only if deps changed

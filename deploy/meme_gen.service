@@ -9,7 +9,7 @@
 #   sudo journalctl -u meme_gen -f
 #
 # NOTE: adjust the User, Group, and WorkingDirectory below to match your VPS
-# layout. The paths shown (/opt/meme_gen, the 'memegen' user) are the
+# layout. The paths shown (/srv/meme_gen, the 'memegen' user) are the
 # recommended layout documented in deploy/README.md.
 
 [Unit]
@@ -20,11 +20,11 @@ After=network.target
 Type=notify
 User=memegen
 Group=memegen
-WorkingDirectory=/opt/meme_gen
-EnvironmentFile=/opt/meme_gen/.env
+WorkingDirectory=/srv/meme_gen
+EnvironmentFile=/srv/meme_gen/.env
 
 # gunicorn loads deploy/gunicorn_conf.py (workers, bind 127.0.0.1:8000, logs).
-ExecStart=/opt/meme_gen/venv/bin/gunicorn app.main:app -c deploy/gunicorn_conf.py
+ExecStart=/srv/meme_gen/venv/bin/gunicorn app.main:app -c deploy/gunicorn_conf.py
 
 ExecReload=/bin/kill -s HUP $MAINPID
 
@@ -41,7 +41,7 @@ RestartSec=3
 NoNewPrivileges=true
 # ProtectSystem=full
 #ProtectHome=true
-#ReadWritePaths=/opt/meme_gen /var/log/meme_gen
+#ReadWritePaths=/srv/meme_gen /var/log/meme_gen
 PrivateTmp=true
 PrivateDevices=true
 #ProtectKernelTunables=true

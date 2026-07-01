@@ -6,5 +6,5 @@ venv/
 output/
 tmp/
 uploads/
-*.db
+*.db*
 .DS_Store

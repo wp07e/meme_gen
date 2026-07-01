@@ -210,4 +210,5 @@ SQLite + WAL handles moderate multi-user load well. If you outgrow it:
 
 ## ADDITIONAL NOTES
 - Make sure to open ports 80, 443 in hostinger as well.
-- Certbot may rewrite your configuration and removed your proxy configuration, replacing it with a redirect-only HTTPS server.
+- Certbot may rewrite your configuration and removed your proxy configuration, replacing it with a redirect-only HTTPS server. Use 'sudo certbot renew' instead of the cert already exists
+- Need to reload ngnix if making code changes "sudo systemctl reload meme_gen'

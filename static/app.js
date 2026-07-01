@@ -114,8 +114,15 @@ for (const b of document.querySelectorAll(".tabs button")) {
 // =========================================================================
 
 let currentStep = 1;
-let captionReady = false;  // gate: Next on step 2 unlocks once AI has drafted a caption
+let captionReady = false;  // true once AI has drafted (informational; the gate is JSON validity)
 let currentJobId = null;
+
+// Returns true if the caption box holds parseable JSON. This is the step-2 gate
+// for the Next button: a user can hand-write valid JSON to skip the AI call.
+function captionJsonValid() {
+  try { JSON.parse($("copyJson").value); return true; }
+  catch { return false; }
+}
 let pollTimer = null;
 
 async function loadTemplates() {
@@ -144,26 +151,40 @@ function gotoStep(n) {
   // nav buttons
   $("prevBtn").classList.toggle("hidden", currentStep === 1);
   $("nextBtn").classList.toggle("hidden", currentStep === 3);
-  // Next is gated on step 2 until a caption exists.
-  $("nextBtn").disabled = (currentStep === 2 && !captionReady);
-  // Pre-fill the render hint when arriving at step 3 without one yet.
+  // Next is gated on step 2 by caption JSON validity — either AI-generated
+  // or hand-written. Lets users skip the AI call by entering their own JSON.
+  $("nextBtn").disabled = (currentStep === 2 && !captionJsonValid());
+  // Hints adapt to whether the caption box holds valid JSON yet.
   if (currentStep === 2) {
-    if (!$("copyJson").value) {
-      $("copyHint").textContent = captionReady
-        ? "" : "Click “Generate caption” to draft one with AI.";
+    const val = $("copyJson").value;
+    if (!val) {
+      $("copyHint").textContent = "Click “Generate caption” to draft one with AI, or paste your own JSON.";
       $("copyHint").className = "status";
+    } else if (captionJsonValid()) {
+      $("copyHint").textContent = "Caption JSON is valid — edit freely, then Next.";
+      $("copyHint").className = "status ok";
+    } else {
+      $("copyHint").textContent = "Caption JSON is invalid — fix it or click “Generate caption”.";
+      $("copyHint").className = "status err";
     }
   }
   if (currentStep === 3) {
-    $("copyHint").textContent = captionReady
+    const ok = captionJsonValid();
+    $("copyHint").textContent = ok
       ? "Ready to render — click below."
-      : "No caption yet — go back and generate one.";
-    $("copyHint").className = captionReady ? "status ok" : "status err";
+      : "Caption JSON is invalid — go back and fix it.";
+    $("copyHint").className = ok ? "status ok" : "status err";
   }
 }
 
 $("prevBtn").addEventListener("click", () => gotoStep(currentStep - 1));
 $("nextBtn").addEventListener("click", () => gotoStep(currentStep + 1));
+
+// Live-update the Next-button gate + hint as the user edits the caption box,
+// so hand-written valid JSON unlocks Next without an AI call.
+$("copyJson").addEventListener("input", () => {
+  if (currentStep === 2) gotoStep(2);
+});
 
 // Show the brand-assets box only for the lower-third-brand template.
 function syncBundleVisibility() {

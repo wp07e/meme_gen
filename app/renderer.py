@@ -21,10 +21,38 @@ ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
 BLUR_RADIUS = 20
 BG_DIM = 0.5
 
+# Fallback font candidates for when the template's font path doesn't exist on
+# the host (e.g. a macOS Arial path on a Linux VPS). Ordered: try the template's
+# own path first (dev convenience), then cross-platform free bold fonts.
+FONT_FALLBACKS = [
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",   # Debian/Ubuntu
+    "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf",            # some RHEL/Fedora
+    "/usr/share/fonts/TTF/dejavu/DejaVuSans-Bold.ttf",        # Arch
+    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",      # macOS
+]
+
+
+def _resolve_font(requested: str) -> str:
+    """Return a usable font file path. Falls back if `requested` is missing.
+
+    Templates store a macOS Arial path; on Linux that doesn't exist so TextClip
+    fails. We try the requested path, then a list of cross-platform free bold
+    fonts, returning the first that exists on disk.
+    """
+    if requested and Path(requested).is_file():
+        return requested
+    for candidate in FONT_FALLBACKS:
+        if Path(candidate).is_file():
+            return candidate
+    raise FileNotFoundError(
+        f"No usable font found. Requested {requested!r}; none of the fallbacks "
+        f"exist: {FONT_FALLBACKS}. Install fonts-dejavu or similar."
+    )
+
 
 def render_video(
     *, clip: ClipInfo, copy: CopyResult, template: TemplateSpec, output_dir: str,
-    assets_dir: Path | None = None,
+    assets_dir: Path | None = None, include_audio: bool = False,
 ) -> str:
     base = VideoFileClip(clip.path)
     W, H = template.width, template.height
@@ -59,7 +87,7 @@ def render_video(
         pos = template.positions[slot_name]
         txt = TextClip(
             text=line,
-            font=template.font,
+            font=_resolve_font(template.font),
             font_size=template.font_size,
             color=template.font_color,
             stroke_color=template.stroke_color,
@@ -72,7 +100,10 @@ def render_video(
         layers.append(txt)
 
     composite = CompositeVideoClip(layers, size=(template.width, template.height))
-    if composite.audio:
+    # Audio policy is caller-controlled via include_audio. When muted, scale the
+    # composite's audio to zero (keeps an aac track for player compatibility but
+    # produces silence). Source clips with no audio are unaffected.
+    if composite.audio and not include_audio:
         composite = composite.with_audio(composite.audio.with_volume_scaled(0.0))
 
     out_dir = Path(output_dir)

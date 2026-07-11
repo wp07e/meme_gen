@@ -2,19 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.copywriter import generate_copy, _is_reasoning_model
-
-
-@pytest.mark.parametrize("model,expected", [
-    ("kimi-k2.6", True),
-    ("kimi-k2", True),
-    ("KIMI-K2.7-CODE", True),
-    ("moonshot-v1-auto", False),
-    ("moonshot-v1-8k", False),
-    ("gpt-4o", False),
-])
-def test_is_reasoning_model(model, expected):
-    assert _is_reasoning_model(model) is expected
+from app.copywriter import generate_copy
 
 
 def test_generate_copy_parses_json_response(sample_copy):
@@ -35,7 +23,7 @@ def test_generate_copy_parses_json_response(sample_copy):
             tone="funny",
             overlay_slot_count=2,
             api_key="fake-key",
-            model="kimi-k2",
+            model="openai/gpt-4o-mini",
         )
     assert result.overlay_lines == ["ME ON MONDAY", "ALSO ME:"]
     assert result.hook == "POV: the alarm was lying"
@@ -51,7 +39,20 @@ def test_generate_copy_raises_on_bad_json():
         with pytest.raises(ValueError):
             generate_copy(
                 topic="x", tone="funny", overlay_slot_count=2,
-                api_key="fake-key", model="kimi-k2",
+                api_key="fake-key", model="openai/gpt-4o-mini",
+            )
+
+
+def test_generate_copy_raises_on_empty_content():
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.return_value = MagicMock(
+        choices=[MagicMock(message=MagicMock(content=""))]
+    )
+    with patch("app.copywriter.OpenAI", return_value=mock_client):
+        with pytest.raises(ValueError, match="empty content"):
+            generate_copy(
+                topic="x", tone="funny", overlay_slot_count=2,
+                api_key="fake-key", model="openai/gpt-4o-mini",
             )
 
 

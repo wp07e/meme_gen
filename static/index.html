@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="dark" />
   <meta name="theme-color" content="#0e0f13" />
+  <!-- __GTM_HEAD__ -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231d2029'/%3E%3Crect x='1' y='1' width='62' height='62' rx='13' fill='none' stroke='%23c6ff3a' stroke-width='2'/%3E%3Cpath d='M16 44V20h4.8l7.2 12 7.2-12H40v24h-5V30l-5.2 8.6h-1.6L21 30v14z' fill='%23c6ff3a'/%3E%3C/svg%3E" />
   <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png" />
   <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16.png" />
@@ -16,6 +17,7 @@
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
+<!-- __GTM_BODY__ -->
 
 <!-- ===================== LOGIN ===================== -->
 <section id="login" class="login-screen hidden">
@@ -107,6 +109,10 @@
             <label><input type="radio" name="format" value="clip" /> Clip</label>
             <label><input type="radio" name="format" value="gif" /> GIF</label>
           </div>
+        </div>
+
+        <div class="field">
+          <label><input type="checkbox" id="soundToggle" /> Include sound</label>
         </div>
       </section>
 

@@ -26,8 +26,8 @@ class Settings:
     uploads_dir: str = field(default_factory=lambda: _env("UPLOADS_DIR", "uploads"))
     # --- Auth (login + admin). Set SECRET_KEY/ADMIN_* in .env for a real deploy. ---
     secret_key: str = field(default_factory=lambda: _env("SECRET_KEY", "dev-only-insecure-secret-change-me"))
-    admin_username: str = field(default_factory=lambda: _env("ADMIN_USERNAME", "testadmin"))
-    admin_password: str = field(default_factory=lambda: _env("ADMIN_PASSWORD", "testpass123"))
+    admin_username: str = field(default_factory=lambda: _env("ADMIN_USERNAME", "admin"))
+    admin_password: str = field(default_factory=lambda: _env("ADMIN_PASSWORD", "changeme"))
     # --- Analytics. Set GTM_CONTAINER_ID in .env; leave blank to disable GTM. ---
     gtm_container_id: str = field(default_factory=lambda: _env("GTM_CONTAINER_ID", ""))
 

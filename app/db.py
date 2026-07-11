@@ -1,23 +1,51 @@
 """SQLite persistence via SQLModel.
 
-Local single-user: a file at meme_gen.db (gitignored). To migrate to Postgres
-for a multi-user/web deploy, swap DATABASE_URL and drop check_same_thread.
+A file at meme_gen.db (gitignored). WAL mode + busy_timeout let multiple
+gunicorn worker processes share the same DB file safely: readers never block
+writers, and a concurrent write waits (up to busy_timeout) instead of raising
+"database is locked". This supports the multi-worker production deploy behind
+nginx. To migrate to Postgres for heavier scale, swap DATABASE_URL.
 """
 import os
 from contextlib import contextmanager
 from typing import Iterator
 
+from sqlalchemy import event
 from sqlmodel import Session, SQLModel, create_engine, select
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///meme_gen.db")
 
-# check_same_thread=False: worker threads (jobs.py) share the engine.
-# SQLite handles concurrent reads; writes serialize — fine for local single-user.
+# check_same_thread=False: worker threads (jobs.py) share the engine within a
+# process. The connect listener below extends safety to multiple *processes*.
 engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {},
     echo=False,
 )
+
+
+@event.listens_for(engine, "connect")
+def _set_sqlite_pragmas(dbapi_conn, _conn_record) -> None:
+    """Apply WAL + concurrency pragmas to every new SQLite connection.
+
+    - journal_mode=WAL: readers don't block writers across processes, so N
+      gunicorn workers can read job state while another renders/writes.
+    - busy_timeout=5000: a contended write waits up to 5s rather than failing
+      instantly with "database is locked".
+    - synchronous=NORMAL: safe under WAL and faster than the FULL default.
+    foreign_keys=ON is also enforced so ON DELETE CASCADE rules hold.
+
+    No-op for non-SQLite engines (e.g. Postgres): the pragma calls would error,
+    so we guard by inspecting the connection's DBAPI module name.
+    """
+    if not DATABASE_URL.startswith("sqlite"):
+        return
+    cur = dbapi_conn.cursor()
+    cur.execute("PRAGMA journal_mode=WAL")
+    cur.execute("PRAGMA busy_timeout=5000")
+    cur.execute("PRAGMA synchronous=NORMAL")
+    cur.execute("PRAGMA foreign_keys=ON")
+    cur.close()
 
 
 def init_db() -> None:

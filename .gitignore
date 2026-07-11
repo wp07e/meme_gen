@@ -8,3 +8,5 @@ tmp/
 uploads/
 *.db
 .DS_Store
+nginx.conf
+deploy/README.md

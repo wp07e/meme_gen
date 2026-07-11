@@ -11,7 +11,7 @@ FIXTURE = Path(__file__).parent / "fixtures" / "test_clip.mp4"
 def test_run_pipeline_chains_stages(tmp_path, sample_copy):
     settings = Settings(
         giphy_api_key="g", klipy_api_key="k",
-        moonshot_api_key="m", moonshot_model="kimi-k2",
+        openrouter_api_key="m", openrouter_model="openai/gpt-4o-mini",
         output_dir=str(tmp_path / "out"), tmp_dir=str(tmp_path / "tmp"),
     )
     fake_clip = ClipInfo(
@@ -34,7 +34,7 @@ def test_run_pipeline_clip_keyword_overrides_topic_query(tmp_path, sample_copy):
     """When clip_keyword is given, it is used as the search query, not topic."""
     settings = Settings(
         giphy_api_key="g", klipy_api_key="k",
-        moonshot_api_key="m", moonshot_model="moonshot-v1-auto",
+        openrouter_api_key="m", openrouter_model="openai/gpt-4o-mini",
         output_dir=str(tmp_path / "out"), tmp_dir=str(tmp_path / "tmp"),
     )
     fake_clip = ClipInfo(
@@ -58,7 +58,7 @@ def test_run_pipeline_falls_back_to_topic_when_no_keyword(tmp_path, sample_copy)
     """Without clip_keyword, the topic is used as the search query."""
     settings = Settings(
         giphy_api_key="g", klipy_api_key="k",
-        moonshot_api_key="m", moonshot_model="moonshot-v1-auto",
+        openrouter_api_key="m", openrouter_model="openai/gpt-4o-mini",
         output_dir=str(tmp_path / "out"), tmp_dir=str(tmp_path / "tmp"),
     )
     fake_clip = ClipInfo(

@@ -25,9 +25,9 @@ def run_pipeline(
             topic=topic,
             tone=tone,
             overlay_slot_count=slot_count,
-            api_key=settings.moonshot_api_key,
-            model=settings.moonshot_model,
-            base_url=settings.moonshot_base_url,
+            api_key=settings.openrouter_api_key,
+            model=settings.openrouter_model,
+            base_url=settings.openrouter_base_url,
         )
 
     # Clip search uses an explicit keyword if provided; otherwise falls back to

@@ -16,9 +16,9 @@ class Settings:
     # Read at instantiation (not import time) so tests can monkeypatch env.
     giphy_api_key: str = field(default_factory=lambda: _env("GIPHY_API_KEY"))
     klipy_api_key: str = field(default_factory=lambda: _env("KLIPY_API_KEY"))
-    moonshot_api_key: str = field(default_factory=lambda: _env("MOONSHOT_API_KEY"))
-    moonshot_model: str = field(default_factory=lambda: _env("MOONSHOT_MODEL", "kimi-k2"))
-    moonshot_base_url: str = "https://api.moonshot.ai/v1"
+    openrouter_api_key: str = field(default_factory=lambda: _env("OPENROUTER_API_KEY"))
+    openrouter_model: str = field(default_factory=lambda: _env("OPENROUTER_MODEL", "openai/gpt-4o-mini"))
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
     host: str = field(default_factory=lambda: _env("HOST", "127.0.0.1"))
     port: int = field(default_factory=lambda: int(_env("PORT", "8000")))
     output_dir: str = field(default_factory=lambda: _env("OUTPUT_DIR", "output"))

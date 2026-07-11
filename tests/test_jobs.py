@@ -40,8 +40,8 @@ def _copy():
 
 
 def _settings(tmp_path):
-    return Settings(giphy_api_key="g", klipy_api_key="k", moonshot_api_key="m",
-                    moonshot_model="moonshot-v1-auto",
+    return Settings(giphy_api_key="g", klipy_api_key="k", openrouter_api_key="m",
+                    openrouter_model="openai/gpt-4o-mini",
                     output_dir=str(tmp_path / "out"), tmp_dir=str(tmp_path / "tmp"))
 
 

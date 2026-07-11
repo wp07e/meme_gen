@@ -1,4 +1,4 @@
-"""Generate caption/hook/overlay text via Moonshot Kimi (OpenAI-compatible)."""
+"""Generate caption/hook/overlay text via OpenRouter (OpenAI-compatible)."""
 import json
 import re
 
@@ -24,11 +24,6 @@ def _extract_json(text: str) -> dict:
     return json.loads(match.group(0))
 
 
-def _is_reasoning_model(model: str) -> bool:
-    """Reasoning models (kimi-k2.*) only allow temperature=1."""
-    return model.lower().startswith("kimi-k2")
-
-
 def generate_copy(
     *,
     topic: str,
@@ -36,32 +31,22 @@ def generate_copy(
     overlay_slot_count: int,
     api_key: str,
     model: str,
-    base_url: str = "https://api.moonshot.ai/v1",
+    base_url: str = "https://openrouter.ai/api/v1",
 ) -> CopyResult:
     client = OpenAI(api_key=api_key, base_url=base_url)
     prompt = SYSTEM_PROMPT.format(n=overlay_slot_count, topic=topic, tone=tone)
-    reasoning = _is_reasoning_model(model)
     response = client.chat.completions.create(
         model=model,
         messages=[
             {"role": "system", "content": prompt},
             {"role": "user", "content": f"Write copy for: {topic}"},
         ],
-        # Reasoning models (kimi-k2.*) require temperature=1 and spend thousands
-        # of tokens thinking before the visible answer; budget generously.
-        # Non-reasoning models (moonshot-v1-*) accept the full range and produce
-        # better creative copy at 0.9.
-        temperature=1 if reasoning else 0.9,
-        max_tokens=4000 if reasoning else 600,
+        temperature=0.9,
+        max_tokens=600,
     )
-    message = response.choices[0].message
-    content = message.content or ""
-    # Some reasoning models return the answer in reasoning_content; fall back
-    # to it only if the visible content is empty.
+    content = response.choices[0].message.content or ""
     if not content.strip():
-        content = getattr(message, "reasoning_content", "") or ""
-    if not content.strip():
-        raise ValueError("Model returned empty content and reasoning_content.")
+        raise ValueError("Model returned empty content.")
     data = _extract_json(content)
     return CopyResult(
         caption=str(data["caption"]).strip(),
@@ -100,9 +85,9 @@ def _normalize_overlay_lines(raw) -> list[str]:
 
 def suggest_keywords(
     *, query: str, api_key: str, model: str,
-    base_url: str = "https://api.moonshot.ai/v1", count: int = 3,
+    base_url: str = "https://openrouter.ai/api/v1", count: int = 3,
 ) -> list[str]:
-    """Ask Moonshot for alternative search keywords for a meme clip search.
+    """Ask AI for alternative search keywords for a meme clip search.
 
     Used by the retry loop when truncation has already been tried. Returns up to
     `count` short, lowercase keyword phrases suitable for Giphy/Klipy search.
@@ -118,12 +103,10 @@ def suggest_keywords(
             )},
             {"role": "user", "content": f"Original search: {query}\nSuggest {count} alternatives."},
         ],
-        temperature=1 if _is_reasoning_model(model) else 0.9,
-        max_tokens=4000 if _is_reasoning_model(model) else 300,
+        temperature=0.9,
+        max_tokens=300,
     )
     content = response.choices[0].message.content or ""
-    if not content.strip():
-        content = getattr(response.choices[0].message, "reasoning_content", "") or ""
     data = _extract_json(content)
     kws = [str(k).strip().lower() for k in data.get("keywords", []) if str(k).strip()]
     return kws[:count]

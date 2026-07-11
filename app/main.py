@@ -163,9 +163,9 @@ def api_preview_copy(req: PreviewCopyRequest, _user: Principal = Depends(require
         copy = generate_copy(
             topic=req.topic, tone=req.tone,
             overlay_slot_count=len(spec.positions),
-            api_key=settings.moonshot_api_key,
-            model=settings.moonshot_model,
-            base_url=settings.moonshot_base_url,
+            api_key=settings.openrouter_api_key,
+            model=settings.openrouter_model,
+            base_url=settings.openrouter_base_url,
         )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Copy generation failed: {e}")
